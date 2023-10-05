@@ -1,0 +1,264 @@
+---
+output:
+  pdf_document: default
+  html_document: default
+---
+
+# Final Project
+
+Daniel Zhang\
+PID: A16500214\
+Math 189\
+Spring 2023
+
+## Application Problems
+
+1. a)
+
+```{r}
+library(ISLR2)
+head(Carseats)
+model <- lm(Sales ~., data = Carseats)
+model
+```
+
+1. b) 
+
+```{r}
+par(mfrow = c(2,2))
+plot(model)
+```
+
+From the plots above, we see that the model is not violating any assumptions such as linearity or normality. The linear model should be appropriate.
+
+1. c) 
+
+```{r}
+summary(model)
+```
+
+The null hypothesis is that the coefficients for CompPrice and Income are equal to zero. The alternative hypothesis is that the coefficients for CompPrice and Income are not equal to zero. The test statistic is the t-test statistic which has a normal distribution. An appropriate significance level is 0.05.
+
+From the table above, we see that the p-value for CompPrice and Income are both below the significance level and we reject the null hypothesis.
+
+2. a)
+
+```{r}
+sample <- sample.int(n = nrow(Carseats), size = floor(0.8*nrow(Carseats)), replace = F)
+train = Carseats[sample,]
+nrow(train)
+test = Carseats[-sample,]
+nrow(test)
+```
+
+The proportions for the train/test split are 80/20.
+
+2. b)
+
+```{r}
+library(glmnet)
+x <- model.matrix(Sales ~ ., train)[, -1]
+y <- train$Sales
+set.seed(1)
+cv.out <- cv.glmnet(x, y, alpha = 0)
+plot(cv.out)
+bestlam <- cv.out$lambda.min
+bestlam
+coef(cv.out)
+```
+
+2. c) 
+
+```{r}
+x <- model.matrix(Sales ~ ., test)[, -1]
+data <- data.frame(pred = predict(cv.out, s = bestlam, newx = x), actual = test$Sales)
+head(data)
+sqrt(mean((data$actual - data$s1)^2))
+```
+
+2. d)
+
+```{r}
+library(randomForest)
+library(Metrics)
+set.seed(1)
+rf <- randomForest(Sales ~ ., data = train, mtry = 10, ntree = 25, importance = TRUE)
+rf
+importance(rf)
+rmse(test$Sales, predict(rf,test))
+```
+
+2. e) A marketing team may prefer the ridge regression model in (b) because it has a lower RMSE. Another marketing team may prefer the random forest model because it considers price as being important while the ridge regression model does not.
+
+3. a) 
+
+```{r}
+set.seed(1)
+X <- rt(200, 15)
+summary(X)
+```
+
+3. b) 
+
+```{r}
+noise <- rt(200, 5)
+summary(noise)
+```
+
+3. c) 
+
+```{r}
+Y = 5 + 2 * sin(X) - 7 * ( exp(2 * cos(X)) / (1 + exp(2 * cos(X)))) + noise
+plot(Y)
+summary(Y)
+```
+
+3. d)
+
+```{r}
+df <- data.frame(Y,X)
+
+plot(X, Y)
+color <- c("red","orange","green","blue","violet")
+for (index in c(0:4))
+{
+  m <- lm(Y ~ poly(X, index + 1, raw = TRUE), data = df)
+  c <- color[index + 1]
+  x<-sort(X)
+  y<-m$fitted.values[order(X)]
+  lines(x, y, col=c)
+}
+legend(2, y= 0, paste0("m", 1:5), fill=color)
+
+```
+
+3. e) I prefer the model with X to the order of 2 or 3. They neither under-fitted like the linear m1 nor over-fitted like m4 and m5, which barely differ from each other.
+
+   f) 
+   
+```{r}
+m2 <- lm(Y ~ poly(X, 2, raw = TRUE), data = df)
+predict(m2, newdata = data.frame(X=c(1)), interval = 'confidence')
+```
+
+We are 90% confident that Y is between [0.5580371, 1.122421] when X = 1.
+
+3. g) 
+
+```{r}
+library(boot)
+fun <- function(data, idx)
+{
+  d <- data[idx, ]
+  m2 <- lm(Y ~ poly(X, 2, raw = TRUE), data = d)
+  predict(m2, newdata = data.frame(X=c(1)))
+}
+bootstrap <- boot(df, fun, R = 1000)
+boot.ci(boot.out = bootstrap, type = c("norm"))
+```
+
+We are 90% confident that Y is between [0.5359, 1.1099] when X = 1.
+
+4. a) 
+
+```{r}
+data(College)
+head(College)
+set.seed(1)
+sample <- sample.int(n = nrow(College), size = floor(0.8*nrow(College)), replace = F)
+train = College[sample,]
+nrow(train)
+test = College[-sample,]
+nrow(test)
+```
+
+4. b)
+
+```{r}
+logreg <- glm(Private ~ ., train,family="binomial")
+logreg
+```
+
+The statistic of Top10perc is the percentage of new students being from the top 10% of high school classes. The coefficient for Top10perc can be understood as how important this statistic is as a factor of a college being public or private. Currently, it seems the percentage of new students from the top 10% of high school classes is not an important factor in whether a college is public or private.
+
+4. c) 
+
+```{r}
+prob <- predict(logreg,newdata = test, type = "response")
+predicted <- ifelse(prob > 0.5, "Yes", "No")
+1 - mean(predicted == test$Private)
+```
+
+4. d)
+
+```{r}
+library(MASS)
+lda_model = lda(Private ~ ., train)
+predicted <- predict(lda_model,newdata = test)$class
+1 - mean(predicted == test$Private)
+```
+
+4. e)
+
+```{r}
+qda_model = qda(Private ~ ., train)
+predicted <- predict(qda_model,newdata = test)$class
+1 - mean(predicted == test$Private)
+```
+
+4. f)
+
+```{r}
+library(e1071)
+svm_model <- svm(Private ~ ., train)
+predicted <- predict(svm_model,newdata = test)
+1 - mean(predicted == test$Private)
+```
+
+4. g) I picked the LDA model because it has the lowest test error.
+
+5. a) 
+
+```{r}
+library(MultBiplotR)
+data(Protein)
+head(Protein)
+p <- subset(Protein, select = -c(Comunist,Region))
+pca = prcomp(p, scale. = TRUE, rank. =5)
+summary(pca)
+```
+
+5. b) 
+
+```{r}
+pca
+```
+
+The first principle component has negative associations with non-fish meat and starch, while also having large positive associations with cereal and nuts. The second principle component has large positive associations with fish as well as fruits and vegetables. These two components measure different dietary habits.
+
+5. c)
+
+```{r}
+biplot(pca)
+```
+
+Based on the plot above, milk is most positively correlated with white meat, most negatively correlated with nuts, and uncorrelated with fish and fruits.
+
+5. d)
+
+```{r}
+reg <- Protein[Protein$Region == 'North' | Protein$Region == "Center",]
+subset(reg, select = Region)
+summary(pca)
+```
+
+Countries in the north and central regions are grouped close together in the biplot. However, some countries in the north region such as Denmark and Norway are located higher on PC2 compared to countries in the center region. This suggests that countries in the north region have higher consumption of fish and fruits/vegetables.
+
+## Conceptual Problems
+
+6. For linear regression, bootstrapping can help validate the model and its confidence intervals. For random forest, bagging uses bootstrapping to reduce variability, which is more helpful.
+
+7. FEWR and FDR are about the rates of type I errors, which are false positives. Correcting for FEWR and FDR may decrease type I errors, but it will also increase type II errors, which are false negatives. This should not be done if the cost of false negatives is higher than the cost of false positives, such as covid test results.
+
+8. Assumptions such as linearity and normality need to be checked because they affect the accuracy of the model. For example, if there is a pattern in the residual plot for a linear model, then it might not have a linear relationship and the model should not be used for inference or prediction.
+
